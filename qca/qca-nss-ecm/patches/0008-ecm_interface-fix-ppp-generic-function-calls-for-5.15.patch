@@ -3,7 +3,7 @@
 @@ -3606,7 +3606,7 @@ identifier_update:
  		if (skb && (skb->skb_iif == dev->ifindex)) {
  			struct pppol2tp_common_addr info;
-
+ 
 -			if (__ppp_is_multilink(dev) > 0) {
 +			if (ppp_is_multilink(dev) > 0) {
  				DEBUG_TRACE("%px: Net device: %px is MULTILINK PPP - Unknown to the ECM\n", feci, dev);
