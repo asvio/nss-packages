@@ -84,39 +84,7 @@
  {
  	*supp |= NSS_GMAC_SUPPORTED_FEATURES;
  	*adv |= NSS_GMAC_ADVERTISED_FEATURES;
-@@ -994,9 +995,11 @@ static int32_t nss_gmac_of_get_pdata(str
- 				     struct net_device *netdev,
- 				     struct msm_nss_gmac_platform_data *gmaccfg)
- {
--	uint8_t *maddr = NULL;
- 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
- 	struct resource memres_devtree = {0};
-+	phy_interface_t phyif = 0;
-+
-+
- 
- 	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
- 		|| of_property_read_u32(np, "qcom,phy-mdio-addr",
-@@ -1022,15 +1025,14 @@ static int32_t nss_gmac_of_get_pdata(str
- 
- 	of_property_read_u32(np, "qcom,aux-clk-freq", &gmacdev->aux_clk_freq);
- 
--	gmaccfg->phy_mii_type = of_get_phy_mode(np);
-+	gmaccfg->phy_mii_type = of_get_phy_mode(np, &phyif);
- 	netdev->irq = irq_of_parse_and_map(np, 0);
- 	if (netdev->irq == NO_IRQ) {
- 		pr_err("%s: Can't map interrupt\n", np->name);
- 		return -EFAULT;
- 	}
--	maddr = (uint8_t *)of_get_mac_address(np);
--	if (maddr)
--		memcpy(gmaccfg->mac_addr, maddr, ETH_ALEN);
-+
-+	of_get_mac_address(np, gmaccfg->mac_addr);
- 
- 	if (of_address_to_resource(np, 0, &memres_devtree) != 0)
- 		return -EFAULT;
-@@ -1100,7 +1102,7 @@ static int32_t nss_gmac_do_common_init(s
+@@ -1100,7 +1101,7 @@ static int32_t nss_gmac_do_common_init(s
  	ctx.msm_clk_ctl_enabled = true;
  #endif
  
@@ -125,7 +93,7 @@
  						  resource_size(&res_nss_base));
  	if (!ctx.nss_base) {
  		pr_info("Error mapping NSS GMAC registers\n");
-@@ -1109,7 +1111,7 @@ static int32_t nss_gmac_do_common_init(s
+@@ -1109,7 +1110,7 @@ static int32_t nss_gmac_do_common_init(s
  	}
  	pr_debug("%s: NSS base ioremap OK.\n", __func__);
  
@@ -134,7 +102,7 @@
  					      resource_size(&res_qsgmii_base));
  	if (!ctx.qsgmii_base) {
  		pr_info("Error mapping QSGMII registers\n");
-@@ -1119,7 +1121,7 @@ static int32_t nss_gmac_do_common_init(s
+@@ -1119,7 +1120,7 @@ static int32_t nss_gmac_do_common_init(s
  	pr_debug("%s: QSGMII base ioremap OK, vaddr = 0x%p\n",
  						__func__, ctx.qsgmii_base);
  
@@ -143,7 +111,7 @@
  				       resource_size(&res_clk_ctl_base));
  	if (!ctx.clk_ctl_base) {
  		pr_info("Error mapping Clk control registers\n");
-@@ -1409,8 +1411,8 @@ static int32_t nss_gmac_probe(struct pla
+@@ -1409,8 +1410,8 @@ static int32_t nss_gmac_probe(struct pla
  			goto nss_gmac_phy_attach_fail;
  		}
  
@@ -154,7 +122,7 @@
  		gmacdev->phydev->irq = PHY_POLL;
  		netdev_dbg(netdev, "PHY %s attach OK\n", phy_id);
  
-@@ -1440,6 +1442,8 @@ static int32_t nss_gmac_probe(struct pla
+@@ -1440,6 +1441,8 @@ static int32_t nss_gmac_probe(struct pla
  		netdev_dbg(netdev, "%s MII_PHYSID2 - 0x%04x\n", netdev->name,
  		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID2));
  	} else if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
@@ -360,17 +328,6 @@
  						      NSS_GMAC_REG_BLOCK_LEN);
  	if (!gmacdev->mac_base) {
  		netdev_dbg(netdev, "ioremap fail.\n");
---- a/ipq806x/include/nss_gmac_network_interface.h
-+++ b/ipq806x/include/nss_gmac_network_interface.h
-@@ -41,7 +41,7 @@ int32_t nss_gmac_xmit_frames(struct sk_b
- int32_t nss_gmac_close(struct net_device *netdev);
- int32_t nss_gmac_open(struct net_device *netdev);
- int32_t nss_gmac_change_mtu(struct net_device *netdev, int32_t newmtu);
--void nss_gmac_tx_timeout(struct net_device *netdev);
-+void nss_gmac_tx_timeout(struct net_device *netdev, unsigned int txqueue);
- 
- /* NSS driver interface APIs */
- void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,
 --- a/ipq806x/nss_gmac_tx_rx_offload.c
 +++ b/ipq806x/nss_gmac_tx_rx_offload.c
 @@ -1027,8 +1027,10 @@ int nss_gmac_close(struct net_device *ne
@@ -386,12 +343,3 @@
  
  	clear_bit(__NSS_GMAC_UP, &gmacdev->flags);
  	clear_bit(__NSS_GMAC_CLOSING, &gmacdev->flags);
-@@ -1044,7 +1046,7 @@ int nss_gmac_close(struct net_device *ne
-  * @param[in] pointer to net_device structure
-  * @return void.
-  */
--void nss_gmac_tx_timeout(struct net_device *netdev)
-+void nss_gmac_tx_timeout(struct net_device *netdev, unsigned int txqueue)
- {
- 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
- 	BUG_ON(gmacdev == NULL);

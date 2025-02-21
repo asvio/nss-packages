@@ -1,3 +1,6 @@
+# NHSS.QSDK.12.1.r5_CS1
+# by SqTER
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
@@ -6,9 +9,9 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-gmac.git
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_DATE:=2021-04-20
+PKG_SOURCE_DATE:=2023-06-01
 PKG_SOURCE_VERSION:=171767947467662f2407d0cfff26dfb136c3fb4a
-PKG_MIRROR_HASH:=b0d6a73aaa4e3617c547c4eed16ab9c0c5bc3cc5057209708ee6475c8733d82a
+PKG_MIRROR_HASH:=3c59139b20bc607f71e8a20e14ea63e6520b2f321347cfa7b3532c15120c9947
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -32,7 +35,7 @@ define Build/InstallDev
 endef
 
 EXTRA_CFLAGS+= \
-	-DCONFIG_NSS_DEBUG_LEVEL=4 \
+	-DCONFIG_NSS_DEBUG_LEVEL=0 \
 	-I$(PKG_BUILD_DIR)/nss_hal/include \
 	-I$(PKG_BUILD_DIR)/nss_hal/$(BOARD)
 
