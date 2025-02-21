@@ -1,3 +1,6 @@
+# NHSS.QSDK.12.4.5.r2
+# by SqTER
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
@@ -5,10 +8,10 @@ PKG_NAME:=qca-nss-ecm
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/qca-nss-ecm.git
-PKG_SOURCE_DATE:=2023-01-20
+PKG_SOURCE_DATE:=2023-07-25
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=db66c47
-PKG_MIRROR_HASH:=d4fd709914b37980c14b31fc6cb19f3ffdd4b8ff9d99c1d93ee70d2845c00af7
+PKG_SOURCE_VERSION:=9acdcb05c04ae177a79c4c34cef0487fbcedbfaa
+PKG_MIRROR_HASH:=f36f5b5318e23b0efe38097751f44c7a05b208b1884294eb8aab15d2a1e33677
 PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
@@ -56,14 +59,14 @@ define AddDepends/qca-nss-ecm/Default
   SUBMENU:=Network Support
   DEPENDS:= \
 	+@NSS_DRV_IPV6_ENABLE \
-	+@NSS_DRV_PPE_ENABLE \
-	+@NSS_DRV_TUN6RD_ENABLE \
-	+@NSS_DRV_PPPOE_ENABLE \
-	+@NSS_DRV_PPTP_ENABLE \
 	+@NSS_DRV_VIRT_IF_ENABLE \
 	+@NSS_DRV_WIFI_ENABLE \
-	+kmod-qca-nss-drv \
+	+@NSS_DRV_PPPOE_ENABLE \
+	+@NSS_DRV_PPTP_ENABLE \
+	+PACKAGE_kmod-qca-nss-drv:kmod-qca-nss-drv \
 	+kmod-nf-conntrack \
+	+kmod-ipt-physdev \
+	+iptables-mod-physdev \
 	+kmod-ppp +kmod-pppoe +kmod-pptp
 endef
 
@@ -85,11 +88,13 @@ endif
 endef
 
 define KernelPackage/qca-nss-ecm-standard
-$(call KernelPackage/qca-nss-ecm/Default)
-  DEPENDS+= \
-	+PACKAGE_kmod-qca-mcs:kmod-qca-mcs \
-	+PACKAGE_kmod-pppol2tp:kmod-pppol2tp \
-	+PACKAGE_kmod-qca-nat46:kmod-qca-nat46
+  $(call KernelPackage/qca-nss-ecm/Default)
+ifneq ($(CONFIG_PACKAGE_kmod-pppol2tp),)
+  DEPENDS+=+PACKAGE_kmod-pppol2tp:kmod-pppol2tp
+endif
+ifneq ($(CONFIG_PACKAGE_kmod-qca-mcs),)
+  DEPENDS+=+kmod-qca-mcs 
+endif
   VARIANT:=standard
 endef
 
@@ -106,7 +111,7 @@ define KernelPackage/qca-nss-ecm-premium/Default
 $(call KernelPackage/qca-nss-ecm/Default)
   TITLE+:= (with premium features)
   VARIANT:=premium
-  DEPENDS+:=+kmod-qca-hyfi-bridge +kmod-qca-mcs +kmod-qca-nat46
+  DEPENDS+:=+kmod-qca-hyfi-bridge +kmod-qca-mcs
 ifeq ($(CONFIG_TARGET_ipq_ipq40xx)$(CONFIG_TARGET_ipq40xx),)
   DEPENDS+=+kmod-bonding
 endif
@@ -187,8 +192,7 @@ EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/hyfibr \
 	-I$(STAGING_DIR)/usr/include/qca-mcs \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
-	-I$(STAGING_DIR)/usr/include/shortcut-fe \
-	-I$(STAGING_DIR)/usr/include/nat46
+	-I$(STAGING_DIR)/usr/include/shortcut-fe 
 
 ECM_MAKE_OPTS:=ECM_CLASSIFIER_HYFI_ENABLE=n
 ifeq ($(LOCAL_VARIANT),standard)
@@ -207,61 +211,85 @@ ECM_MAKE_OPTS+=ECM_INTERFACE_BOND_ENABLE=n
 endif
 endif
 
-ifneq ($(CONFIG_PACKAGE_kmod-qca-nat46),)
-ECM_MAKE_OPTS+=ECM_INTERFACE_MAP_T_ENABLE=y
-endif
-
 ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-link),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_OVPN_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_OVPN_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_VXLAN_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_VXLAN_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-qca-ovsmgr),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_OVS_BRIDGE_ENABLE=y \
 		ECM_CLASSIFIER_OVS_ENABLE=y
 EXTRA_CFLAGS+= -I$(STAGING_DIR)/usr/include/qca-ovsmgr
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_OVS_BRIDGE_ENABLE=n \
+		ECM_CLASSIFIER_OVS_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-macvlan),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_MACVLAN_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_MACVLAN_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-qca-mcs),)
 ECM_MAKE_OPTS+=ECM_MULTICAST_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_MULTICAST_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-ipsec),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_IPSEC_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_IPSEC_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-pppoe),)
 ECM_MAKE_OPTS+= ECM_INTERFACE_PPPOE_ENABLE=y \
 		ECM_INTERFACE_PPTP_ENABLE=y \
 		ECM_INTERFACE_PPP_ENABLE=y
+else
+ECM_MAKE_OPTS+= ECM_INTERFACE_PPPOE_ENABLE=n \
+		ECM_INTERFACE_PPTP_ENABLE=n \
+		ECM_INTERFACE_PPP_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-pppol2tp),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-gre)$(CONFIG_PACKAGE_kmod-gre6),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_TAP_ENABLE=y \
 		ECM_INTERFACE_GRE_TUN_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_TAP_ENABLE=n \
+		ECM_INTERFACE_GRE_TUN_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-sit),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_SIT_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_SIT_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-ip6-tunnel),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_TUNIPIP6_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_TUNIPIP6_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-mscs),)
 ECM_MAKE_OPTS+=ECM_CLASSIFIER_MSCS_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_CLASSIFIER_MSCS_ENABLE=n
 endif
 
 # Disable ECM IPv6 support when global IPv6 support is disabled.
