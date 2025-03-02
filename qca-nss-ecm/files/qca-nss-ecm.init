@@ -150,13 +150,11 @@ unload_ecm() {
 
 service_triggers() {
   procd_add_reload_trigger "network"
-  procd_add_reload_trigger "firewall"
   procd_add_reload_trigger "packet_steering"
-  procd_add_raw_trigger "interface.*" 1000 /etc/init.d/qca-nss-ecm reload
 }
 
 reload_service() {
-  start_service
+  disable_packet_steering
 }
 
 start_service() {
